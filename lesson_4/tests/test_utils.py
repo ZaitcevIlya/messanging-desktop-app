@@ -53,14 +53,20 @@ class TestUtils(unittest.TestCase):
             ERROR: 'Bad Request'
         }
 
-    def test_get_message(self):
+    def test_get_message_ok(self):
         test_sock_ok = TestSocket(self.test_dict_recv_ok)
-        test_sock_err = TestSocket(self.test_dict_recv_err)
         self.assertEqual(get_message(test_sock_ok), self.test_dict_recv_ok)
+
+    def test_get_message_error(self):
+        test_sock_err = TestSocket(self.test_dict_recv_err)
         self.assertEqual(get_message(test_sock_err), self.test_dict_recv_err)
 
-    def test_send_json_message(self):
+    def test_send_json_message_ok(self):
         test_socket = TestSocket(self.test_dict_send)
         send_json_message(test_socket, self.test_dict_send)
         self.assertEqual(test_socket.encoded_message, test_socket.received_message)
+
+    def test_send_json_message_error(self):
+        test_socket = TestSocket(self.test_dict_send)
+        send_json_message(test_socket, self.test_dict_send)
         self.assertRaises(TypeError, send_json_message, test_socket, "wrong_dictionary")
