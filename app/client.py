@@ -189,8 +189,6 @@ def main():
         user_interface.daemon = True
         user_interface.start()
 
-        print('All processes started')
-
         while True:
             time.sleep(1)
             if receiver.is_alive() and user_interface.is_alive():
