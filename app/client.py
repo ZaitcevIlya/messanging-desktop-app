@@ -5,6 +5,8 @@ import sys
 import threading
 import time
 from socket import socket, AF_INET, SOCK_STREAM
+
+from metaclasses import ClientVerifier
 from common.variables import DEFAULT_SERVER_ADDRESS, DEFAULT_SERVER_PORT, ACTION, TIME, \
     PRESENCE, RESPONSE, USER, ACCOUNT_NAME, ERROR, SENDER, DESTINATION, MESSAGE_TEXT, MESSAGE, EXIT
 from common.utils import send_json_message, get_message
@@ -17,10 +19,7 @@ from logs import client_log_config
 client_log = logging.getLogger('client_log')
 
 
-class ClientSender(threading.Thread):
-    """
-    Class create and send message to server and provide UI
-    """
+class ClientSender(threading.Thread, metaclass=ClientVerifier):
     def __init__(self, account_name, sock):
         self.account_name = account_name
         self.sock = sock
@@ -81,10 +80,7 @@ class ClientSender(threading.Thread):
         print('exit - close connection')
 
 
-class ClientReader(threading.Thread):
-    """
-    Gets messages from server and shows them to chat
-    """
+class ClientReader(threading.Thread, metaclass=ClientVerifier):
     def __init__(self, account_name, sock):
         self.account_name = account_name
         self.sock = sock

@@ -1,10 +1,11 @@
 import os
 import select
 import sys
-import json
-import time
 
 from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
+
+from app.descriptors import Port
+from app.metaclasses import ServerVerifier
 from common.variables import ACTION, ACCOUNT_NAME, RESPONSE, PRESENCE, \
     TIME, USER, ERROR, DEFAULT_SERVER_PORT, MESSAGE, MESSAGE_TEXT, SENDER, RESPONSE_200, RESPONSE_400, EXIT, DESTINATION
 from common.utils import get_message, send_json_message
@@ -26,13 +27,9 @@ def get_params():
             listen_port = int(sys.argv[sys.argv.index('-p') + 1])
         else:
             listen_port = DEFAULT_SERVER_PORT
-        if listen_port < 1024 or listen_port > 65535:
-            raise ValueError
+
     except IndexError:
         print('You should enter port number after -\'p\' param.')
-        sys.exit(1)
-    except ValueError:
-        print('Port can be only a number between 1024 and 65535.')
         sys.exit(1)
 
     # Server address
@@ -48,7 +45,9 @@ def get_params():
     return listen_address, listen_port
 
 
-class Server:
+class Server(metaclass=ServerVerifier):
+    port = Port()
+
     def __init__(self, listen_address, listen_port):
         # Connection params
         self.address = listen_address
