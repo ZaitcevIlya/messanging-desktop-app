@@ -5,6 +5,8 @@ import sys
 import threading
 import time
 from socket import socket, AF_INET, SOCK_STREAM
+
+from metaclasses import ClientVerifier
 from common.variables import DEFAULT_SERVER_ADDRESS, DEFAULT_SERVER_PORT, ACTION, TIME, \
     PRESENCE, RESPONSE, USER, ACCOUNT_NAME, ERROR, SENDER, DESTINATION, MESSAGE_TEXT, MESSAGE, EXIT
 from common.utils import send_json_message, get_message
@@ -17,102 +19,89 @@ from logs import client_log_config
 client_log = logging.getLogger('client_log')
 
 
-@log
-def message_from_server(sock, client_name):
-    """Process other clients messages from server"""
-    while True:
-        try:
-            message = get_message(sock)
-            if ACTION in message and message[ACTION] == MESSAGE and \
-                    SENDER in message and DESTINATION in message and MESSAGE_TEXT in message and \
-                    message[DESTINATION] == client_name:
-                print(f'\nGot message from client {message[SENDER]}:\n{message[MESSAGE_TEXT]}')
-                client_log.info(f'Got message from client {message[SENDER]}:\n{message[MESSAGE_TEXT]}')
-                print(f'Enter the command: ')
-            else:
-                client_log.error(f'Got error message: {message}')
-        except (OSError, ConnectionError, ConnectionAbortedError, ConnectionResetError, json.JSONDecodeError):
-            client_log.critical(f'Connection lost')
-            break
+class ClientSender(threading.Thread, metaclass=ClientVerifier):
+    def __init__(self, account_name, sock):
+        self.account_name = account_name
+        self.sock = sock
+        super().__init__()
 
-
-@log
-def create_message(sock, account_name='Guest'):
-    """Ask for addresser name and message text and send data to the server"""
-    to_client = input('Enter receiver username: ')
-    message = input('Enter your message: ')
-    message_dict = {
-        ACTION: MESSAGE,
-        SENDER: account_name,
-        DESTINATION: to_client,
-        TIME: time.time(),
-        MESSAGE_TEXT: message
-    }
-    client_log.debug(f'Created message dict: {message_dict}')
-    try:
-        send_json_message(sock, message_dict)
-        client_log.debug(f'Sent message to: {to_client}')
-    except Exception as error:
-        print(error)
-        client_log.critical('Connection lost')
-        sys.exit(1)
-
-
-def create_exit_message(account_name):
-    """Create dict with exit message"""
-    return {
-        ACTION: EXIT,
-        TIME: time.time(),
-        ACCOUNT_NAME: account_name
-    }
-
-
-def print_help():
-    """Show client documentation"""
-    print('Available commands:')
-    print('message - send message. Receiver and message text handle in another place.')
-    print('help - show this documentaion')
-    print('exit - close connection')
-
-
-@log
-def user_interactions(sock, client_name):
-    """Process user input"""
-    print_help()
-    while True:
-        command = input('Enter the command: ')
-        if command == 'message':
-            create_message(sock, client_name)
-        elif command == 'help':
-            print_help()
-        elif command == 'exit':
-            send_json_message(sock, create_exit_message(client_name))
-            print('Connection closed')
-            client_log.info('Client closed connection')
-            # Wait for exit message sending
-            time.sleep(0.5)
-            break
-        else:
-            print('There is no such command. Enter help - to show available commands.')
-
-
-@log
-def make_presence(account_name='Guest'):
-    """
-    Prepare presence message
-    :param account_name: str
-    :return:
-    """
-    current_time = time.time()
-    message = {
-        ACTION: PRESENCE,
-        TIME: current_time,
-        USER: {
-            ACCOUNT_NAME: account_name
+    def create_exit_message(self):
+        """Create dict with exit message"""
+        return {
+            ACTION: EXIT,
+            TIME: time.time(),
+            ACCOUNT_NAME: self.account_name
         }
-    }
-    client_log.debug(f'Presence {PRESENCE} created for client {account_name}')
-    return message
+
+    def create_message(self):
+        """Ask for addresser name and message text and send data to the server"""
+        to_client = input('Enter receiver username: ')
+        message = input('Enter your message: ')
+        message_dict = {
+            ACTION: MESSAGE,
+            SENDER: self.account_name,
+            DESTINATION: to_client,
+            TIME: time.time(),
+            MESSAGE_TEXT: message
+        }
+        client_log.debug(f'Created message dict: {message_dict}')
+        try:
+            send_json_message(self.sock, message_dict)
+            client_log.debug(f'Sent message to: {to_client}')
+        except Exception as error:
+            print(error)
+            client_log.critical('Connection lost')
+            sys.exit(1)
+
+    def run(self):
+        self.print_help()
+
+        while True:
+            command = input('Enter the command: ')
+            if command == 'message':
+                self.create_message()
+            elif command == 'help':
+                self.print_help()
+            elif command == 'exit':
+                send_json_message(self.sock, self.create_exit_message())
+                print('Connection closed')
+                client_log.info('Client closed connection')
+                # Wait for exit message sending
+                time.sleep(0.5)
+                break
+            else:
+                print('There is no such command. Enter help - to show available commands.')
+
+    def print_help(self):
+        """Show client documentation"""
+        print('Available commands:')
+        print('message - send message. Receiver and message text handle in another place.')
+        print('help - show this documentaion')
+        print('exit - close connection')
+
+
+class ClientReader(threading.Thread, metaclass=ClientVerifier):
+    def __init__(self, account_name, sock):
+        self.account_name = account_name
+        self.sock = sock
+        super().__init__()
+
+    def run(self):
+        """Process other clients messages from server"""
+        while True:
+            try:
+                message = get_message(self.sock)
+                if ACTION in message and message[ACTION] == MESSAGE and \
+                        SENDER in message and DESTINATION in message and MESSAGE_TEXT in message and \
+                        message[DESTINATION] == self.account_name:
+                    print(f'\nGot message from client {message[SENDER]}:\n{message[MESSAGE_TEXT]}')
+                    client_log.info(f'Got message from client {message[SENDER]}:\n{message[MESSAGE_TEXT]}')
+                    print(f'Enter the command: ')
+                else:
+                    client_log.error(f'Got error message: {message}')
+            except (OSError, ConnectionError, ConnectionAbortedError, ConnectionResetError, json.JSONDecodeError):
+                client_log.critical(f'Connection lost')
+                break
 
 
 @log
@@ -129,6 +118,25 @@ def process_server_answer(message):
         elif message[RESPONSE] == 400:
             return f'400 : {message[ERROR]}'
     raise ValueError
+
+
+@log
+def make_presence(account_name):
+    """
+    Prepare presence message
+    :param account_name: str
+    :return:
+    """
+    current_time = time.time()
+    message = {
+        ACTION: PRESENCE,
+        TIME: current_time,
+        USER: {
+            ACCOUNT_NAME: account_name
+        }
+    }
+    client_log.debug(f'Presence {PRESENCE} created for client {account_name}')
+    return message
 
 
 @log
@@ -181,17 +189,17 @@ def main():
     else:
         print(client_name)
         # If connected to the server runs receiving server messages in separated thread
-        receiver = threading.Thread(target=message_from_server, args=(transport, client_name))
-        receiver.daemon = True
-        receiver.start()
+        module_receiver = ClientReader(client_name, transport)
+        module_receiver.daemon = True
+        module_receiver.start()
 
-        user_interface = threading.Thread(target=user_interactions, args=(transport, client_name))
-        user_interface.daemon = True
-        user_interface.start()
+        module_sender = ClientSender(client_name, transport)
+        module_sender.daemon = True
+        module_sender.start()
 
         while True:
             time.sleep(1)
-            if receiver.is_alive() and user_interface.is_alive():
+            if module_receiver.is_alive() and module_sender.is_alive():
                 continue
             break
 
