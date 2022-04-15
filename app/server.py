@@ -1,6 +1,7 @@
 import os
 import select
 import sys
+import threading
 
 from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
 
@@ -10,6 +11,7 @@ from common.variables import ACTION, ACCOUNT_NAME, RESPONSE, PRESENCE, \
     TIME, USER, ERROR, DEFAULT_SERVER_PORT, MESSAGE, MESSAGE_TEXT, SENDER, RESPONSE_200, RESPONSE_400, EXIT, DESTINATION
 from common.utils import get_message, send_json_message
 from decorators import log
+from server_database import ServerStorage
 
 import logging
 sys.path.append(os.path.join(os.getcwd(), '..'))
@@ -45,13 +47,15 @@ def get_params():
     return listen_address, listen_port
 
 
-class Server(metaclass=ServerVerifier):
+class Server(threading.Thread, metaclass=ServerVerifier):
     port = Port()
 
-    def __init__(self, listen_address, listen_port):
+    def __init__(self, listen_address, listen_port, database):
         # Connection params
         self.address = listen_address
         self.port = listen_port
+
+        self.database = database
 
         # List of connected clients
         self.clients = []
@@ -59,6 +63,8 @@ class Server(metaclass=ServerVerifier):
         self.messages = []
         # Names/addresses relation dictionary
         self.names = dict()
+
+        super().__init__()
 
     def init_socket(self):
         print(f'Server started on port {self.port}')
@@ -72,14 +78,14 @@ class Server(metaclass=ServerVerifier):
         self.sock = transport
         self.sock.listen()
 
-    def main_loop(self):
+    def run(self):
         self.init_socket()
 
         while True:
             try:
                 client, client_address = self.sock.accept()
-            except OSError as err:
-                print(err.errno)
+            except OSError:
+                pass
             else:
                 server_log.info(f'Client with address {client_address} connected')
                 self.clients.append(client)
@@ -130,6 +136,8 @@ class Server(metaclass=ServerVerifier):
             # Check if such user exists. If not - register, else send answer
             if message[USER][ACCOUNT_NAME] not in self.names.keys():
                 self.names[message[USER][ACCOUNT_NAME]] = client
+                client_ip, client_port = client.getpeername()
+                self.database.user_login(message[USER][ACCOUNT_NAME], client_ip, client_port)
                 send_json_message(client, RESPONSE_200)
             else:
                 response = RESPONSE_400
@@ -146,6 +154,7 @@ class Server(metaclass=ServerVerifier):
             return
         # If client closed connection
         elif ACTION in message and message[ACTION] == EXIT and ACCOUNT_NAME in message:
+            self.database.user_logout(message[ACCOUNT_NAME])
             self.clients.remove(self.names[message[ACCOUNT_NAME]])
             self.names[message[ACCOUNT_NAME]].close()
             del self.names[message[ACCOUNT_NAME]]
@@ -157,11 +166,48 @@ class Server(metaclass=ServerVerifier):
             return
 
 
+def print_help():
+    print('Available commands:')
+    print('users - list of registered users')
+    print('connected - list of active users')
+    print('loghist - users login history')
+    print('exit - turn off the server')
+    print('help - show help documentation')
+
+
 def main():
+    # Get server params
     listen_address, listen_port = get_params()
 
-    server = Server(listen_address, listen_port)
-    server.main_loop()
+    # Init DB
+    database = ServerStorage()
+
+    server = Server(listen_address, listen_port, database)
+    server.daemon = True
+    server.start()
+
+    print_help()
+
+    # Sever main loop:
+    while True:
+        command = input('Enter the command: ')
+        if command == 'help':
+            print_help()
+        elif command == 'exit':
+            break
+        elif command == 'users':
+            for user in sorted(database.users_list()):
+                print(f'User {user[0]}, last loging: {user[1]}')
+        elif command == 'connected':
+            for user in sorted(database.active_users_list()):
+                print(f'User {user[0]}, connected: {user[1]}:{user[2]}, login since: {user[3]}')
+        elif command == 'loghist':
+            name = input('Enter username to watch his/her history. '
+                         'To see whole history just press Enter: ')
+            for user in sorted(database.login_history(name)):
+                print(f'User: {user[0]} last login: {user[1]}. login since: {user[2]}:{user[3]}')
+        else:
+            print('There is no such command.')
 
 
 if __name__ == '__main__':
