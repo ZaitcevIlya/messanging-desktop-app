@@ -5,8 +5,8 @@ import threading
 
 from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
 
-from app.descriptors import Port
-from app.metaclasses import ServerVerifier
+from descriptors import Port
+from metaclasses import ServerVerifier
 from common.variables import ACTION, ACCOUNT_NAME, RESPONSE, PRESENCE, \
     TIME, USER, ERROR, DEFAULT_SERVER_PORT, MESSAGE, MESSAGE_TEXT, SENDER, RESPONSE_200, RESPONSE_400, EXIT, DESTINATION
 from common.utils import get_message, send_json_message
