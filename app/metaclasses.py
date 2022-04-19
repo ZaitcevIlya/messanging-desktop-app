@@ -56,13 +56,13 @@ class ServerVerifier(type):
                         if i.argval not in attrs:
                             attrs.append(i.argval)
 
-        print(20 * '-', 'methods', 20 * '-')
-        pprint(global_methods)
-        print(20 * '-', 'methods_2', 20 * '-')
-        pprint(methods)
-        print(20 * '-', 'attrs', 20 * '-')
-        pprint(attrs)
-        print(50 * '-')
+        # print(20 * '-', 'methods', 20 * '-')
+        # pprint(global_methods)
+        # print(20 * '-', 'methods_2', 20 * '-')
+        # pprint(methods)
+        # print(20 * '-', 'attrs', 20 * '-')
+        # pprint(attrs)
+        # print(50 * '-')
 
         for command in forbidden_commands:
             if command in methods:

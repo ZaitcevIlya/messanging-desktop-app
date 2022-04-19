@@ -5,7 +5,7 @@ server_log = logging.getLogger('server_log')
 
 class Port:
     def __set__(self, instance, value):
-        if not 1024 < value < 65535:
+        if not 1023 < int(value) < 65535:
             m = f'Incorrect port value {value}. Port can be only a number between 1024 and 65535.'
             server_log.critical(m)
             print(m)
