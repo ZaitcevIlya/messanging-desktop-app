@@ -133,3 +133,4 @@ dmypy.json
 .idea/
 app/logs/logging/server_log.log.*
 app/client_*.db3
+app/server_base.db3
