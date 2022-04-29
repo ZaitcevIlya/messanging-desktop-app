@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import json
 import os
 import sys
@@ -5,6 +7,7 @@ import threading
 import socket
 import time
 
+import binascii
 from PyQt5.QtCore import QObject, pyqtSignal
 
 from common.utils import send_json_message, get_message
@@ -22,13 +25,16 @@ socket_lock = threading.Lock()
 class ClientTransport(threading.Thread, QObject):
     new_message = pyqtSignal(str)
     connection_lost = pyqtSignal()
+    message_205 = pyqtSignal()
     
-    def __init__(self, ip_address, port, database, username):
+    def __init__(self, ip_address, port, database, username, password, keys):
         threading.Thread.__init__(self)
         QObject.__init__(self)
         # DB object
         self.database = database
         self.username = username
+        self.password = password
+        self.keys = keys
         # Socket to work with server
         self.transport = None
 
@@ -68,15 +74,50 @@ class ClientTransport(threading.Thread, QObject):
             client_log.critical('Cannot connect to the server')
             raise ServerError('Cannot connect to the server')
 
-        client_log.debug('Connected to the server')
+        client_log.debug('Starting auth dialog.')
 
-        try:
-            with socket_lock:
-                send_json_message(self.transport, self.create_presence())
-                self.process_server_ans(get_message(self.transport))
-        except (OSError, json.JSONDecodeError):
-            client_log.critical('Connection lost')
-            raise ServerError('Connection lost')
+        password_bytes = self.password.encode('utf-8')
+        salt = self.username.lower().encode('utf-8')
+        password_hash = hashlib.pbkdf2_hmac('sha512', password_bytes, salt, 10000)
+        password_hash_string = binascii.hexlify(password_hash)
+
+        client_log.debug(f'Passwd hash ready: {password_hash_string}')
+
+        # Got pub_key and decode it from bytes
+        pubkey = self.keys.publickey().export_key().decode('ascii')
+
+        # Authorising on server
+        with socket_lock:
+            presense = {
+                ACTION: PRESENCE,
+                TIME: time.time(),
+                USER: {
+                    ACCOUNT_NAME: self.username,
+                    PUBLIC_KEY: pubkey
+                }
+            }
+            client_log.debug(f"Presense message = {presense}")
+
+            try:
+                send_json_message(self.transport, presense)
+                ans = get_message(self.transport)
+                client_log.debug(f'Server response = {ans}.')
+
+                if RESPONSE in ans:
+                    if ans[RESPONSE] == 400:
+                        raise ServerError(ans[ERROR])
+                    elif ans[RESPONSE] == 511:
+                        ans_data = ans[DATA]
+                        hash = hmac.new(password_hash_string, ans_data.encode('utf-8'), 'MD5')
+                        digest = hash.digest()
+                        my_ans = RESPONSE_511
+                        my_ans[DATA] = binascii.b2a_base64(
+                            digest).decode('ascii')
+                        send_json_message(self.transport, my_ans)
+                        self.process_server_ans(get_message(self.transport))
+            except (OSError, json.JSONDecodeError) as err:
+                client_log.debug(f'Connection error.', exc_info=err)
+                raise ServerError('Authorization failed')
 
         client_log.info('Connected to the server')
 
@@ -99,6 +140,10 @@ class ClientTransport(threading.Thread, QObject):
                 return
             elif message[RESPONSE] == 400:
                 raise ServerError(f'{message[ERROR]}')
+            elif message[RESPONSE] == 205:
+                self.user_list_update()
+                self.contacts_list_update()
+                self.message_205.emit()
             else:
                 client_log.debug(f'Unknown response code {message[RESPONSE]}')
 
@@ -146,6 +191,21 @@ class ClientTransport(threading.Thread, QObject):
             self.database.add_users(ans[LIST_INFO])
         else:
             client_log.error('Cannot update users list')
+
+    def key_request(self, user):
+        client_log.debug(f'Request public key for {user}')
+        req = {
+            ACTION: PUBLIC_KEY_REQUEST,
+            TIME: time.time(),
+            ACCOUNT_NAME: user
+        }
+        with socket_lock:
+            send_json_message(self.transport, req)
+            ans = get_message(self.transport)
+        if RESPONSE in ans and ans[RESPONSE] == 511:
+            return ans[DATA]
+        else:
+            client_log.error(f'Cannot get interlocutor key {user}.')
 
     def add_contact(self, contact):
         client_log.debug(f'Create contact {contact}')
