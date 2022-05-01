@@ -14,6 +14,8 @@ USER = 'user'
 ACCOUNT_NAME = 'account_name'
 SENDER = 'from'
 DESTINATION = 'to'
+DATA = 'bin'
+PUBLIC_KEY = 'pubkey'
 
 # JIM's other keys:
 MESSAGE = 'message'
@@ -28,6 +30,7 @@ LIST_INFO = 'data_list'
 REMOVE_CONTACT = 'remove'
 ADD_CONTACT = 'add'
 USERS_REQUEST = 'get_users'
+PUBLIC_KEY_REQUEST = 'pubkey_need'
 
 # Dicts - answers:
 # 200
@@ -37,8 +40,17 @@ RESPONSE_202 = {
     RESPONSE: 202,
     LIST_INFO: []
 }
+# 205
+RESPONSE_205 = {
+    RESPONSE: 205
+}
 # 400
 RESPONSE_400 = {
     RESPONSE: 400,
     ERROR: None
+}
+# 511
+RESPONSE_511 = {
+    RESPONSE: 511,
+    DATA: None
 }

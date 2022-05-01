@@ -1,7 +1,7 @@
 import datetime
 from pprint import pprint
 
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -15,9 +15,13 @@ class ServerStorage:
         id = Column(Integer, primary_key=True)
         username = Column(String, unique=True)
         last_login = Column(DateTime)
+        password_hash = Column(String)
+        pub_key = Column(Text)
 
-        def __init__(self, username):
+        def __init__(self, username, password_hash):
             self.username = username
+            self.password_hash = password_hash
+            self.pub_key = None
             self.last_login = datetime.datetime.now()
 
     class LoginHistory(Base):
@@ -85,18 +89,16 @@ class ServerStorage:
         self.session.query(self.ActiveUser).delete()
         self.session.commit()
 
-    def user_login(self, username, ip, port):
+    def user_login(self, username, ip, port, key):
         """Calls during user login, log to db information about it"""
         users = self.session.query(self.User).filter_by(username=username)
         if users.count():
             user = users.first()
             user.last_login = datetime.datetime.now()
+            if user.pub_key != key:
+                user.pub_key = key
         else:
-            user = self.User(username)
-            self.session.add(user)
-            self.session.commit()
-            user_in_history = self.UserHistory(user.id)
-            self.session.add(user_in_history)
+            raise ValueError('User does not exists')
 
         new_active_user = self.ActiveUser(user.id, ip, port, datetime.datetime.now())
         self.session.add(new_active_user)
@@ -105,6 +107,46 @@ class ServerStorage:
         self.session.add(history)
 
         self.session.commit()
+
+    def add_user(self, username, password_hash):
+        """Create a new user to DB"""
+        user_row = self.User(username, password_hash)
+        self.session.add(user_row)
+        self.session.commit()
+
+        history_row = self.UserHistory(user_row.id)
+        self.session.add(history_row)
+        self.session.commit()
+
+    def remove_user(self, username):
+        """Remove user from DB"""
+        user = self.session.query(self.User).filter_by(username=username).first()
+        self.session.query(self.ActiveUser).filter_by(user=user.id).delete()
+        self.session.query(self.LoginHistory).filter_by(user=user.id).delete()
+        self.session.query(self.UsersContacts).filter_by(user=user.id).delete()
+        self.session.query(
+            self.UsersContacts).filter_by(
+            contact=user.id).delete()
+        self.session.query(self.UserHistory).filter_by(user=user.id).delete()
+        self.session.query(self.User).filter_by(username=username).delete()
+        self.session.commit()
+
+    def get_hash(self, username):
+        """Get user pass hash."""
+        user = self.session.query(self.User).filter_by(username=username).first()
+        return user.password_hash
+
+    def get_pubkey(self, username):
+        """Get user public key."""
+        user = self.session.query(self.User).filter_by(username=username).first()
+        return user.pub_key
+
+    def check_user(self, username):
+        """Check if user exists."""
+        if self.session.query(self.User).filter_by(username=username).count():
+            return True
+        else:
+            return False
 
     def user_logout(self, username):
         """Log user logout to DB"""
