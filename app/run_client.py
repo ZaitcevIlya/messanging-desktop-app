@@ -8,9 +8,9 @@ from PyQt5.QtWidgets import QApplication, QMessageBox
 from client.main_window import ClientMainWindow
 from client.start_dialog import UserNameDialog
 from client.transport import ClientTransport
-from errors import ServerError
+from common.errors import ServerError
 from common.variables import DEFAULT_SERVER_ADDRESS, DEFAULT_SERVER_PORT
-from decorators import log
+from common.decorators import log
 from client.client_database import ClientDatabase
 
 import logging

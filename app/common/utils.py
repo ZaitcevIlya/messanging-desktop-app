@@ -5,7 +5,7 @@ import sys
 from common.variables import ENCODING, MAX_PACKAGE_LENGTH
 
 sys.path.append(os.path.join(os.getcwd(), '..'))
-from decorators import log
+from common.decorators import log
 
 
 @log

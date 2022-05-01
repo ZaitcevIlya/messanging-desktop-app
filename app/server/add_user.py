@@ -89,7 +89,7 @@ class RegisterUser(QDialog):
 
 if __name__ == '__main__':
     app = QApplication([])
-    from server_database import ServerStorage
+    from server.server_database import ServerStorage
     database = ServerStorage('../server_database.db3')
     import os
     import sys

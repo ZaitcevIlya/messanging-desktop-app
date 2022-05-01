@@ -2,9 +2,9 @@ import os
 
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
-from PyQt5.QtWidgets import QMainWindow, qApp, QMessageBox, QApplication, QListView
+from PyQt5.QtWidgets import QMainWindow, qApp, QMessageBox, QApplication
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QBrush, QColor
-from PyQt5.QtCore import pyqtSlot, QEvent, Qt
+from PyQt5.QtCore import pyqtSlot, Qt
 import sys
 import json
 import logging
@@ -15,11 +15,9 @@ from client.add_contact import AddContactDialog
 from client.del_contact import DelContactDialog
 from client.client_database import ClientDatabase
 from client.transport import ClientTransport
-from client.start_dialog import UserNameDialog
-from errors import ServerError
+from common.errors import ServerError
 
 sys.path.append(os.path.join(os.getcwd(), '../../'))
-from logs import client_log_config
 client_log = logging.getLogger('client_log')
 
 

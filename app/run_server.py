@@ -3,18 +3,14 @@ import configparser
 import os
 import sys
 
-from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
-
 from PyQt5.QtCore import Qt
-from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtWidgets import QApplication
 
 from server.core import MessageProcessor
 from server.main_window import MainWindow
 from common.variables import *
-from common.utils import get_message, send_json_message
-from decorators import log
-from server_database import ServerStorage
+from common.decorators import log
+from server.server_database import ServerStorage
 
 
 import logging

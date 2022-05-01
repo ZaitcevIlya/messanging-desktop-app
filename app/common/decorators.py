@@ -2,7 +2,7 @@ import os
 import sys
 import inspect
 
-sys.path.append(os.path.join(os.getcwd(), '..'))
+sys.path.append(os.path.join(os.getcwd(), '../..'))
 import logging
 from logs import client_log_config, server_log_config
 

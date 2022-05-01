@@ -12,11 +12,10 @@ from PyQt5.QtCore import QObject, pyqtSignal
 
 from common.utils import send_json_message, get_message
 from common.variables import *
-from errors import ServerError
+from common.errors import ServerError
 
 import logging
 sys.path.append(os.path.join(os.getcwd(), '..'))
-from logs import client_log_config
 
 client_log = logging.getLogger('client_log')
 socket_lock = threading.Lock()
