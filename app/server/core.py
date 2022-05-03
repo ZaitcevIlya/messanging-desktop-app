@@ -8,7 +8,7 @@ import logging
 
 from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
 
-from descriptors import Port
+from common.descriptors import Port
 from common.variables import *
 from common.utils import get_message, send_json_message
 
@@ -80,16 +80,6 @@ class MessageProcessor(threading.Thread):
                     except OSError:
                         server_log.info(f'Client {client_with_message.getpeername()} was disconnected from the server')
                         self.remove_client(client_with_message)
-
-            # for message in self.messages:
-            #     try:
-            #         self.process_message(message, self.listener_sockets)
-            #     except:
-            #         server_log.info(f'Lost connection with {message[DESTINATION]}')
-            #         self.clients.remove(self.names[message[DESTINATION]])
-            #         self.database.user_logout(message[DESTINATION])
-            #         del self.names[message[DESTINATION]]
-            # self.messages.clear()
 
     def remove_client(self, client):
         for name in self.names:

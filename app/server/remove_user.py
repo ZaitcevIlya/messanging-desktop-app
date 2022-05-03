@@ -1,6 +1,5 @@
 from PyQt5.QtWidgets import QDialog, QLabel, QComboBox, QPushButton, QApplication
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
 
 class DelUserDialog(QDialog):
@@ -53,7 +52,7 @@ class DelUserDialog(QDialog):
 
 if __name__ == '__main__':
     app = QApplication([])
-    from server_database import ServerStorage
+    from server.server_database import ServerStorage
     database = ServerStorage('../server_database.db3')
     import os
     import sys
